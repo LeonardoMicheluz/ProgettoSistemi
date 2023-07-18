@@ -11,8 +11,6 @@ import scipy
 from sympy import *
 from numpy.linalg import eig
 from numba import njit, float64, int32, vectorize, guvectorize
-from typing import Callable
-
 
 
 # Funzione per la ODE
@@ -72,13 +70,14 @@ def isocline():
     plt.plot(x1, y3, "g--", label="y-isocline")
     plt.plot(x1, y4, "g--")
     plt.plot(x1, y4, "g--")
-    plt.legend(loc="upper right")
 
     # Tracciare l'orbita chiusa intorno al punto fisso
-    #t = np.linspace(0, 2*np.pi, 65)
-    #xc = 1 + 0.3 * np.cos(t)
-    #yc = 1 + 0.3 * np.sin(t)
-    #plt.plot(xc,yc, "k--")
+    t = np.linspace(0, 2*np.pi, 65)
+    xc = 1 + 0.3 * np.cos(t)
+    yc = 1 + 0.3 * np.sin(t)
+    plt.plot(xc,yc, "k--", label = "orbite chiuse")
+
+    plt.legend(loc="upper right")
 
 
 # Funzione per plottare i campi vettoriali al variare di a e b
@@ -158,91 +157,35 @@ def pianoFase(a, b):
     ax.scatter(*fixed_points.T, color="r")
     fig.show()
 
-def fg(x, a=2.0, b=1.0) -> np.ndarray[float64]:
+
+def fg(x) -> np.ndarray[float64]:
+    # Define the value for a and b
+    a = 2.0
+    b = 1.0
+
     # Define the equations
     u = x[0] * (3 - a * x[0] - b * x[1])
     v = x[1] * (2 - x[0] - x[1])
     return np.array([u, v])
 
-    # Funzione per rappresentare i manifold
-def phase_diagram_trajectories(fg, dt: float64 = 0.1, final_time: float64 = 1, num: int = 20, start: int = -4, end: int = 4):
-    # Generate all combinations of starting positions using nested for loops
-    x_starts = np.linspace(start, end, num)
-    y_starts = np.linspace(start, end, num)
-    combinations = [(x, y) for x in x_starts for y in y_starts]
 
-    # Initialize an array to store the trajectories
-    trajectories = []
-
-    # Solve the differential equation for each combination of x and y in a vectorized way
-    x0_array = np.array(combinations)
-    trajectories = vectorized_runge_kutta(fg, x0_array, dt, final_time)
-
-    # Set up the plot
-    fig, ax = plt.subplots()
-
-    # Define the color map
-    cmap = plt.get_cmap("viridis")
-
-    # Plot the trajectories for each combination of x and y
-    for i in range(len(combinations)):
-        x_traj = trajectories[i][:, 0]
-        y_traj = trajectories[i][:, 1]
-        color = cmap(i / len(combinations))
-        ax.plot(x_traj, y_traj, color=color, linewidth=0.5)
-
-    # Add labels and title
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_xlim(start, end)
-    ax.set_ylim(start, end)
-    ax.set_title(f'Trajectories of the Differential Equation, dt = {dt}')
-
-    # Set the background color to white
-    fig.patch.set_facecolor("white")
-
-    # Remove the top and right spines
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
-    # Add grid lines
-    ax.grid(True, linestyle="--", color="gray", alpha=0.5)
-
-    # Show the plot
-    plt.show()
-
-
-def rungekutta4(f, y0, t):
-    n = len(t)
-    y = np.zeros((n, len(y0)))
-    y[0] = y0
-    for i in range(n - 1):
-        h = 0.01
-        k1 = f(y[i], t[i])
-        k2 = f(y[i] + k1 * h / 2., t[i] + h / 2.)
-        k3 = f(y[i] + k2 * h / 2., t[i] + h / 2.)
-        k4 = f(y[i] + k3 * h, t[i] + h)
-        y[i+1] = y[i] + (h / 6.) * (k1 + 2*k2 + 2*k3 + k4)
-    return y
-
-
-def vectorized_runge_kutta(fg, x0_array, dt=0.001, final_time=1) -> np.ndarray:
-    """Differential equations solver using Runge-Kutta method"""
+def runge_kutta(fg, x0, dt) -> np.ndarray[float64]:
+    """Differential equations solver using Euler's method"""
 
     # Initialize the solution array
-    num_iterations = int32(final_time / dt)
-    num_conditions = x0_array.shape[0]
-    x = np.empty((num_conditions, num_iterations, x0_array.shape[1]))
-    x[:, 0] = x0_array
+    num_iterations = int32(1 / dt)
+    x = np.empty((num_iterations, x0.shape[0]))
+    x[0] = x0
 
+    # Iterate over all the elements except the first one
     for i in range(1, num_iterations):
-        for j in range(num_conditions):
-            k1 = fg(x[j, i - 1]) * dt
-            k2 = fg(x[j, i - 1] + k1 / 2.0) * dt
-            k3 = fg(x[j, i - 1] + k2 / 2.0) * dt
-            k4 = fg(x[j, i - 1] + k3) * dt
-            x[j, i] = x[j, i - 1] + (1.0 / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        k1 = fg(x[i - 1]) * dt
+        k2 = fg(x[i - 1] + k1 / 2.0) * dt
+        k3 = fg(x[i - 1] + k2 / 2.0) * dt
+        k4 = fg(x[i - 1] + k3) * dt
+        x[i] = x[i - 1] + (1 / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
 
+    # Return the final value of x
     return x
 
 
@@ -270,5 +213,28 @@ isocline()  # Traccia graficamente le isocline
 
 pianoFase(a, b)  # Disegna il piano di fase
 
-phase_diagram_trajectories(fg, dt=0.001, final_time=10, num=20, start=-0, end=3)
+# definizione parametri iniziali
+x_0 = np.array([0.1, 0.1])
+delta_t = 0.001
+
+fig1, ax1 = plt.subplots()
+
+# Compute trajectory
+x_runge_kutta = runge_kutta(fg, x_0, delta_t)
+
+# Extract the x and y coordinates of the trajectory
+x_traj_runge_kutta = x_runge_kutta[:, 0]
+y_traj_runge_kutta = x_runge_kutta[:, 1]
+
+# Plot the trajectory for Runge-Kutta
+ax1.plot(x_traj_runge_kutta, y_traj_runge_kutta, label="Runge-Kutta")
+
+ax1.legend()
+#plt.ylim(0, 5)
+#plt.xlim(0, 5)
+ax1.set_title('Grafico delle soluzioni')
+ax1.set_xlabel(r'$ x $')
+ax1.set_ylabel(r'$ y $')
+fig1.show()
+
 plt.show()
